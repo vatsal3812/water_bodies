@@ -1,0 +1,56 @@
+var aoi=table12;
+var waterbodies=table7;
+
+var checkIntersection = function(feature) {
+  var mws = aoi.filterBounds(feature.geometry());
+  var uidList = mws.aggregate_array('uid'); 
+
+  // uidList = uidList.map(function(uid) {
+  //   var match = ee.String(uid).replace('Pindwara_', ''); // Replace "Mohanpur_" with an empty string
+  //   return match; // This should give you the desired part
+  // });
+
+  var name = uidList.join('_'); 
+  return feature.set('ID', name);
+};
+
+
+var polygonCollection=waterbodies;
+var intersectedFeatures = polygonCollection.map(checkIntersection);
+
+var size = intersectedFeatures.size();
+intersectedFeatures = intersectedFeatures.toList(size);
+var ui = function(n)
+{
+  var temp=ee.Feature(intersectedFeatures);
+  var f = ee.Feature(intersectedFeatures.get(n));
+  var i = ee.Number(n).toInt();
+  var s = ee.String("_").cat(ee.String(i));
+  return f.set('index', s);
+}
+size = ee.Number(size).subtract(ee.Number(1));
+var nl = ee.List.sequence(0,size);
+var f = nl.map(ui);
+f = ee.FeatureCollection(f);
+
+var final = function(feature) {
+  var id1 = feature.get('ID');
+  var id2 = feature.get('index');
+  var s = ee.String(id1).cat(ee.String(id2));
+  return feature.set('UID',s);
+};
+var collec=f.map(final);
+
+var fc = collec;
+var columnsToRemove = ['index', 'ID'];
+var allColumns = fc.first().toDictionary().keys();
+var columnsToKeep = allColumns.filter(ee.Filter.inList('item', columnsToRemove).not());
+var fcWithoutColumns = fc.select(columnsToKeep);
+print(fcWithoutColumns);
+Export.table.toDrive({
+  collection: ee.FeatureCollection(intersectedFeatures),
+  description:'output',
+  fileNamePrefix: 'pindwara_uid_added',
+  folder: 'testing',
+  fileFormat: 'CSV'
+});
