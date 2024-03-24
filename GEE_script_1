@@ -1,0 +1,215 @@
+var aoi=table;
+
+var cm1=image;
+var r1 = cm1.gte(2).and(cm1.lte(4));
+var cm2=image2;
+var r2 = cm2.gte(2).and(cm2.lte(4));
+var cm3=image3;
+var r3 = cm3.gte(2).and(cm3.lte(4));
+var cm4=image4;
+var r4 = cm4.gte(2).and(cm4.lte(4));
+var cm5=image5;
+var r5 = cm5.gte(2).and(cm5.lte(4));
+var cm6=image6;
+var r6 = cm6.gte(2).and(cm6.lte(4));
+
+var collec = [r1, r2, r3, r4, r5,r6]; 
+var collec2 = [cm1,cm2,cm3,cm4,cm5,cm6];
+var ored=r1.or(r2).or(r3).or(r4).or(r5).or(r6);
+
+var multiBandImage = ored.addBands(ored);
+
+var vectorPolygons = multiBandImage.reduceToVectors({
+  reducer: ee.Reducer.anyNonZero(),
+  geometry: aoi.geometry(),  
+  scale: 10,  
+  maxPixels: 1e13,  
+  crs: multiBandImage.projection(),
+  geometryType: 'polygon',
+  eightConnected: true,
+  labelProperty: 'water',  
+});
+
+var features = vectorPolygons;
+features=features.filter(ee.Filter.eq('water', 1));
+
+var calculateMetrics = function(feature) {
+  var fi = ored.clip(feature.geometry());
+  var total_cnt = fi.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label'); 
+
+var cnt_res = [];
+for (var i = 0; i <= 5; i++) {
+  var r = collec[i]; 
+  var clippedImage = r.clip(feature.geometry());
+  var count = clippedImage.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label');
+  cnt_res.push(count);
+}
+var p1=[];
+var p2=[];
+var p3=[];
+var p4=[];
+for (var j = 0; j <= 5; j++) {
+  var bin=collec2[j]; 
+  var binaryImage0 = bin.lte(1);
+  var binaryImage1 = bin.eq(2);
+  var binaryImage2 = bin.eq(3);
+  var binaryImage3 = bin.eq(4);
+    var clippedImage0 = binaryImage0.clip(feature.geometry());
+  var count0 = clippedImage0.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label'); 
+  
+  var clippedImage1 = binaryImage1.clip(feature.geometry());
+  var count1 = clippedImage1.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label'); 
+  
+  var clippedImage2 = binaryImage2.clip(feature.geometry());
+  var count2 = clippedImage2.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label'); 
+  
+  var clippedImage3 = binaryImage3.clip(feature.geometry());
+  var count3 = clippedImage3.reduceRegion({
+    reducer: ee.Reducer.sum(),
+    geometry: feature.geometry(),
+    scale: 10,
+    maxPixels: 1e13
+  }).getNumber('predicted_label'); 
+  var totalCount = count0.add(count1).add(count2).add(count3);
+  
+  // // Calculate the percentage values
+  count1=count1.add(count2).add(count3);
+  count2=count2.add(count3);
+  var percentageCount0 = (count0.divide(totalCount)).multiply(100);
+  var percentageCount1 = (count1.divide(totalCount)).multiply(100);
+  var percentageCount2 = (count2.divide(totalCount)).multiply(100);
+  var percentageCount3 = (count3.divide(totalCount)).multiply(100);
+  p1.push(percentageCount0);
+  p2.push(percentageCount1);
+  p3.push(percentageCount2);
+  p4.push(percentageCount3);
+}
+ 
+// var k16=p2[0]; 
+var k17=p2[0]; 
+var k18=p2[1]; 
+var k19=p2[2];
+var k20=p2[3]; 
+var k21=p2[4]; 
+var k22=p2[5]; 
+ 
+// var kr16=p3[0]; 
+var kr17=p3[0]; 
+var kr18=p3[1]; 
+var kr19=p3[2];
+var kr20=p3[3]; 
+var kr21=p3[4]; 
+var kr22=p3[5]; 
+ 
+//   var krz16=p4[0]; 
+var krz17=p4[0]; 
+var krz18=p4[1]; 
+var krz19=p4[2];
+var krz20=p4[3]; 
+var krz21=p4[4]; 
+var krz22=p4[5]; 
+
+  var area=total_cnt.multiply(100);
+  // var area16=cnt_res[0].multiply(100);
+  var area17=cnt_res[0].multiply(100);
+  var area18=cnt_res[1].multiply(100);
+  var area19=cnt_res[2].multiply(100);
+  var area20=cnt_res[3].multiply(100);
+  var area21=cnt_res[4].multiply(100);
+  var area22=cnt_res[5].multiply(100);
+  var properties = {
+    'A1_area_ored': area,
+    
+    // 'A2_area_16-17' : area16,
+    // 'A3_kharif_pixels_percentage_16-17' : k16,
+    // 'A4_kharif_rabi_pixels_percentage_16-17' : kr16,
+    // 'A5_kharif_rabi_zaid_pixels_percentage_16-17' : krz16,
+    
+    'A6_area_17-18' : area17,
+    'A7_kharif_pixels_percentage_17-18' : k17,
+    'A8_kharif_rabi_pixels_percentage_17-18' : kr17,
+    'A9_kharif_rabi_zaid_pixels_percentage_17-18' : krz17,
+    
+    'B1_area_18-19' : area18,
+    'B2_kharif_pixels_percentage_18-19' : k18,
+    'B3_kharif_rabi_pixels_percentage_18-19' : kr18,
+    'B4_kharif_rabi_zaid_pixels_percentage_18-19' : krz18,
+    
+    'B5_area_19-20' : area19,
+    'B6_kharif_pixels_percentage_19-20' : k19,
+    'B7_kharif_rabi_pixels_percentage_19-20' : kr19,
+    'B8_kharif_rabi_zaid_pixels_percentage_19-20' : krz19,
+    
+    'B9_area_20-21' : area20,
+    'C1_kharif_pixels_percentage_20-21' : k20,
+    'C2_kharif_rabi_pixels_percentage_20-21' : kr20,
+    'C3_kharif_rabi_zaid_pixels_percentage_20-21' : krz20,
+    
+    'C4_area_21-22' : area21,
+    'C5_kharif_pixels_percentage_21-22' : k21,
+    'C6_kharif_rabi_pixels_percentage_21-22' : kr21,
+    'C7_kharif_rabi_zaid_pixels_percentage_21-22' : krz21,
+    
+    'C8_area_22-23' : area22,
+    'C9_kharif_pixels_percentage_22-23' : k22,
+    'D1_kharif_rabi_pixels_percentage_22-23' : kr22,
+    'D2_kharif_rabi_zaid_pixels_percentage_22-23' : krz22
+  };
+  feature = feature.set(properties);
+  return feature;
+};
+
+var featureCollectionWithMetrics = features.map(calculateMetrics);
+
+var updatedFeatureCollection =featureCollectionWithMetrics.map(function(feature) {
+  var area = feature.getNumber("A1_area_ored"); // Replace "area" with the actual column name
+  
+  var newCategory = ee.Algorithms.If(
+    ee.Number(area).lte(499), "0-500",
+    ee.Algorithms.If(
+      ee.Number(area).lte(999), "500-1000",
+      ee.Algorithms.If(
+        ee.Number(area).lte(4999), "1000-5000",
+        "5000 and above"
+      )
+    )
+  );
+  feature = feature.set("0_category_sq_m", newCategory);
+
+  return feature;
+});
+
+Export.table.toDrive({
+  collection: updatedFeatureCollection,
+  description:'pindwara_without_uid_part_testing2',
+  fileNamePrefix: 'pindwara_without_uid_part_testing2',
+  folder: 'testing',
+  fileFormat: 'CSV'
+});
+
+
