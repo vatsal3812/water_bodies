@@ -1,0 +1,114 @@
+var census_state=table9;
+var water_bodies=table11;
+var geometry = table5;
+
+var points = census_state.filterBounds(geometry);
+var polygons = water_bodies.filterBounds(geometry);
+
+var featureCollection = points;
+var replaceNullArea = function(feature) {
+  var area = ee.Number(feature.get('water_spread_area_of_water_body'));
+  var capacity = ee.Number(feature.get('storage_capacity_water_body_original'));
+  var depth = ee.Number(feature.get('max_depth_water_body_fully_filled'));
+  var newArea = ee.Algorithms.If(area, area, ee.Algorithms.If(capacity && depth, (capacity.divide(depth)).divide(10000), 0));
+  return feature.set('water_spread_area_of_water_body', newArea);
+};
+var updatedFeatureCollection = featureCollection.map(replaceNullArea);
+points=updatedFeatureCollection;
+// var featureWithId001 = points.filter(ee.Filter.eq('unique_id', '1/20/001/000082/000063/002')).first();
+// print(featureWithId001);
+
+var bufferedPoints = points.map(function(feature) {
+  return feature.buffer(90);
+});
+
+var spatialFilter = ee.Filter.intersects({
+  leftField: '.geo', 
+  rightField: '.geo',
+  maxError: 10
+});
+
+var intersectJoined = ee.Join.saveAll('intersections').apply({
+  primary: bufferedPoints,
+  secondary: polygons,
+  condition: spatialFilter
+});
+
+var selectClosestPolygon = function(feature) {
+  var spread = ee.Number(feature.get('water_spread_area_of_water_body'));
+  spread=spread.multiply(10000);
+  var intersections = ee.List(feature.get('intersections'));
+  var computeDifference = function(fc2Feature) {
+    var areaOred = ee.Number(fc2Feature.get('A1_area_ored'));
+    var difference = areaOred.subtract(spread).abs();
+    return ee.Feature(null, {'difference': difference, 'uid': fc2Feature.get('UID')});
+  };
+  var fc2Intersecting = ee.FeatureCollection(intersections);
+  var fc2WithDifference = fc2Intersecting.map(computeDifference);
+  var sortedFc2 = fc2WithDifference.sort('difference',true);
+  var closestFeature = sortedFc2.first();
+  return feature.set('closest_polygon_id',closestFeature.get('uid'));
+};
+
+var fc1WithClosestPolygon = (intersectJoined).map(selectClosestPolygon);
+// print(fc1WithClosestPolygon);
+// print(intersectJoined);
+
+
+var fc1=fc1WithClosestPolygon;
+var fc2=water_bodies;
+var joinFilter = ee.Filter.equals({
+  leftField: 'UID',
+  rightField: 'closest_polygon_id'
+});
+var joinedFc = ee.Join.saveAll({
+  matchesKey: 'matches'
+}).apply({
+  primary: fc2,
+  secondary: fc1,
+  condition: joinFilter
+});
+var addCensusId = function(feature) {
+  var matches = ee.List(feature.get('matches'));
+  var censusIds = matches.map(function(match) {
+    return ee.Feature(match).get('unique_id');
+  });
+  return feature.set('census_id', censusIds.get(0));
+};
+
+var fc2WithCensusId = joinedFc.map(addCensusId);
+// print('Feature with census_id column:', fc2WithCensusId.first());
+// print(fc2WithCensusId);
+fc2=fc2WithCensusId;
+fc1=water_bodies;
+
+var removeProperty = function(feat, property) {
+  var properties = feat.propertyNames()
+  var selectProperties = properties.filter(ee.Filter.neq('item', property))
+  return feat.select(selectProperties)
+}
+
+var newFC = fc2.map(function(feat) {
+  return removeProperty(feat, 'matches')
+})
+
+// print(newFC)
+var fc2_without_matrices=newFC;
+var fc1_with_census_id = fc1.map(function(feat) {
+  return feat.set('census_id', "NA");
+});
+
+var uidList = fc2_without_matrices.aggregate_array('UID').distinct();
+var filteredFc1 = fc1_with_census_id.filter(ee.Filter.inList('UID', uidList).not());
+
+var final = ee.FeatureCollection(filteredFc1.merge(fc2_without_matrices));
+// print(polygons);
+// print(fc2_without_matrices);
+// print(final);
+Export.table.toDrive({
+  collection: final,
+  description:'output',
+  fileNamePrefix: 'masalia_version4',
+  folder: 'testing',
+  fileFormat: 'CSV'
+});
