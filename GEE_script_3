@@ -10,11 +10,18 @@ var replaceNullArea = function(feature) {
   var area = ee.Number(feature.get('water_spread_area_of_water_body'));
   var capacity = ee.Number(feature.get('storage_capacity_water_body_original'));
   var depth = ee.Number(feature.get('max_depth_water_body_fully_filled'));
-  var newArea = ee.Algorithms.If(area, area, ee.Algorithms.If(capacity && depth, (capacity.divide(depth)).divide(10000), 0));
+  area = ee.Algorithms.If(area, area, 0); 
+  capacity = ee.Algorithms.If(capacity, capacity, 0); 
+  depth = ee.Algorithms.If(depth, depth, 0); 
+  area=ee.Number(area);
+  capacity=ee.Number(capacity);
+  depth=ee.Number(depth);
+  var newArea = ee.Algorithms.If(area.neq(0), area, ee.Algorithms.If(capacity && depth, capacity.divide(depth).divide(10000), 0));
   return feature.set('water_spread_area_of_water_body', newArea);
 };
 var updatedFeatureCollection = featureCollection.map(replaceNullArea);
 points=updatedFeatureCollection;
+print(points);
 // var featureWithId001 = points.filter(ee.Filter.eq('unique_id', '1/20/001/000082/000063/002')).first();
 // print(featureWithId001);
 
