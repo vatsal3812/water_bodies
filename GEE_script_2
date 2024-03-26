@@ -48,7 +48,7 @@ var columnsToKeep = allColumns.filter(ee.Filter.inList('item', columnsToRemove).
 var fcWithoutColumns = fc.select(columnsToKeep);
 print(fcWithoutColumns);
 Export.table.toDrive({
-  collection: ee.FeatureCollection(intersectedFeatures),
+  collection: fcWithoutColumns,
   description:'output',
   fileNamePrefix: 'pindwara_uid_added',
   folder: 'testing',
